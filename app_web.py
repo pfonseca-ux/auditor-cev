@@ -10,7 +10,12 @@ import streamlit as st
 # ==========================================
 # 1. CONFIGURACIÓN DE PÁGINA (PRIMERA LÍNEA)
 # ==========================================
-icono_app = "sobresalir.svg" if os.path.exists("sobresalir.svg") else "🏠"
+if os.path.exists("sobresalir.svg"):
+    icono_app = "sobresalir.svg"
+elif os.path.exists("sobresalir.png"):
+    icono_app = "sobresalir.png"
+else:
+    icono_app = "🏠"
 
 st.set_page_config(
     page_title="Auditor de Planillas CEV",
@@ -20,7 +25,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. ESTILOS VISUALES Y CONTROL DE INTERFAZ
+# 2. ESTILOS VISUALES Y CONTROL DE TEXTOS
 # ==========================================
 st.markdown(
     """
@@ -31,26 +36,23 @@ st.markdown(
         font-family: 'Montserrat', sans-serif !important;
     }
 
-    /* Ocultar barra superior y menú completo de Streamlit */
+    /* Ocultar barra superior y menú de Streamlit */
     header[data-testid="stHeader"] {
         display: none !important;
     }
 
-    /* Ocultar indicador de ejecución ("Stop" / muñeco animado) */
+    /* Ocultar indicador de ejecución ("Stop") */
     [data-testid="stStatusWidget"] {
         display: none !important;
         visibility: hidden !important;
     }
 
-    /* Ocultar pie de página e insignias/botones flotantes inferiores */
-    footer {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
+    /* Ocultar pie de página e insignias flotantes */
+    footer,
     [class*="viewerBadge"],
     [data-testid="stManageAppButton"],
-    #manage-app-button {
+    #manage-app-button,
+    button[id*="manage-app"] {
         display: none !important;
         visibility: hidden !important;
     }
@@ -81,20 +83,17 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(0, 82, 155, 0.05);
     }
 
-    /* Botón 'Subir' inicial */
-    [data-testid="stFileUploaderDropzone"] > div > button,
-    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"] {
+    /* Botón 'Subir' */
+    [data-testid="stFileUploaderDropzone"] button {
         font-size: 0 !important;
         position: relative !important;
         padding: 8px 24px !important;
         border-radius: 8px !important;
     }
-    [data-testid="stFileUploaderDropzone"] > div > button *,
-    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"] * {
+    [data-testid="stFileUploaderDropzone"] button * {
         display: none !important;
     }
-    [data-testid="stFileUploaderDropzone"] > div > button::after,
-    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"]::after {
+    [data-testid="stFileUploaderDropzone"] button::after {
         content: 'Subir' !important;
         font-size: 14px !important;
         font-weight: 600 !important;
@@ -104,26 +103,26 @@ st.markdown(
         visibility: visible !important;
     }
 
-    /* Leyenda de tamaño máximo */
-    [data-testid="stFileUploaderDropzone"] > div > small {
+    /* Texto exacto al lado del botón: 'Tamaño máx. de archivo 2GB, .zip - .rar' */
+    [data-testid="stFileUploaderDropzone"] small {
         font-size: 0 !important;
         line-height: 1 !important;
         visibility: hidden !important;
+        display: inline-block !important;
     }
-    [data-testid="stFileUploaderDropzone"] > div > small::after {
-        content: 'Peso Máx. 2 GB por Archivo comprimido' !important;
-        font-size: 13px !important;
+    [data-testid="stFileUploaderDropzone"] small::after {
+        content: 'Tamaño máx. de archivo 2GB, .zip - .rar' !important;
+        font-size: 14px !important;
         font-weight: 500 !important;
         font-family: 'Montserrat', sans-serif !important;
         color: #64748b !important;
         display: inline-block !important;
         visibility: visible !important;
-        margin-left: 4px !important;
+        margin-left: 10px !important;
     }
 
-    /* Comportamiento con archivo subido */
-    [data-testid="stFileUploaderDropzone"]:has([data-testid="stFileUploaderFile"]) > div > button,
-    [data-testid="stFileUploaderDropzone"]:has([data-testid="stFileUploaderFile"]) [data-testid="stBaseButton-secondary"] {
+    /* Limpieza cuando el archivo ya está subido */
+    [data-testid="stFileUploaderDropzone"]:has([data-testid="stFileUploaderFile"]) button:not([data-testid="stFileUploaderFile"] button) {
         display: none !important;
     }
 
@@ -222,7 +221,7 @@ def extraer_roles_sii(pdf_bytes):
 
 
 def auditar_planilla_excel(excel_bytes, nombre_archivo):
-    """Extrae ROL, comuna y dirección revisando prioritariamente hojas CEV."""
+    """Extrae ROL, comuna y dirección priorizando hojas CEV oficiales."""
     datos = {
         "archivo": nombre_archivo,
         "rol": None,
@@ -317,6 +316,12 @@ if os.path.exists("sobresalir.svg"):
         st.image("sobresalir.svg", width=55)
     with col_titulo:
         st.title("Auditor de Planillas - Plataforma Evaluadores CEV")
+elif os.path.exists("sobresalir.png"):
+    col_logo, col_titulo = st.columns([0.06, 0.94])
+    with col_logo:
+        st.image("sobresalir.png", width=55)
+    with col_titulo:
+        st.title("Auditor de Planillas - Plataforma Evaluadores CEV")
 else:
     st.title("🏠 Auditor de Planillas - Plataforma Evaluadores CEV")
 
@@ -327,35 +332,41 @@ st.markdown(
 )
 
 archivo_zip = st.file_uploader(
-    "📁 Sube aquí el paquete del proyecto (.zip-.rar) con las planillas oficiales y el Certificado SII",
-    type=["zip"],
+    "📁 Sube aquí el paquete del proyecto (.ZIP o .RAR) con las planillas oficiales y el Certificado SII",
+    type=["zip", "rar"],
     help="El archivo comprimido puede contener carpetas, subcarpetas, archivos .xlsx, .xlsm y el PDF del SII.",
 )
 
 if archivo_zip is not None:
-    if st.button("🚀 Auditar Lote de Planillas CEV"):
-        with st.spinner("Procesando paquete comprimido y cruzando información..."):
-            roles_sii = set()
-            planillas_datos = []
-            archivos_excel = []
-            archivo_pdf_sii = None
+    if archivo_zip.name.lower().endswith(".rar"):
+        st.error(
+            "⚠️ Has subido un archivo .RAR. Para el procesamiento automático en la nube, "
+            "comprime la carpeta en formato estándar .ZIP y vuelve a subirla."
+        )
+    else:
+        if st.button("🚀 Auditar Lote de Planillas CEV"):
+            with st.spinner("Procesando paquete comprimido y cruzando información..."):
+                roles_sii = set()
+                planillas_datos = []
+                archivos_excel = []
+                archivo_pdf_sii = None
 
-            with zipfile.ZipFile(archivo_zip, "r") as z:
-                for nombre_interno in z.namelist():
-                    if "__MACOSX" in nombre_interno or nombre_interno.endswith("/") or "/.~" in nombre_interno or nombre_interno.startswith("~"):
-                        continue
+                with zipfile.ZipFile(archivo_zip, "r") as z:
+                    for nombre_interno in z.namelist():
+                        if "__MACOSX" in nombre_interno or nombre_interno.endswith("/") or "/.~" in nombre_interno or nombre_interno.startswith("~"):
+                            continue
 
-                    nombre_lower = nombre_interno.lower()
+                        nombre_lower = nombre_interno.lower()
 
-                    if "reporte_auditoria" in nombre_lower:
-                        continue
+                        if "reporte_auditoria" in nombre_lower:
+                            continue
 
-                    if nombre_lower.endswith(".pdf") and any(
-                        palabra in nombre_lower for palabra in ["sii", "rol", "certificado"]
-                    ):
-                        archivo_pdf_sii = z.read(nombre_interno)
-                    elif nombre_lower.endswith((".xlsx", ".xlsm")):
-                        archivos_excel.append((nombre_interno, z.read(nombre_interno)))
+                        if nombre_lower.endswith(".pdf") and any(
+                            palabra in nombre_lower for palabra in ["sii", "rol", "certificado"]
+                        ):
+                            archivo_pdf_sii = z.read(nombre_interno)
+                        elif nombre_lower.endswith((".xlsx", ".xlsm")):
+                            archivos_excel.append((nombre_interno, z.read(nombre_interno)))
 
                 if archivo_pdf_sii:
                     roles_sii = extraer_roles_sii(archivo_pdf_sii)
