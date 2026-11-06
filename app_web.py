@@ -31,15 +31,28 @@ st.markdown(
         font-family: 'Montserrat', sans-serif !important;
     }
 
-    /* Ocultar el indicador de ejecución ("Stop" / animación superior) */
+    /* Ocultar barra superior y menú completo de Streamlit */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+
+    /* Ocultar indicador de ejecución ("Stop" / muñeco animado) */
     [data-testid="stStatusWidget"] {
         display: none !important;
         visibility: hidden !important;
     }
 
-    /* Ocultar barra superior y menú completo de Streamlit para un look más limpio */
-    header[data-testid="stHeader"] {
+    /* Ocultar pie de página e insignias/botones flotantes inferiores */
+    footer {
         display: none !important;
+        visibility: hidden !important;
+    }
+
+    [class*="viewerBadge"],
+    [data-testid="stManageAppButton"],
+    #manage-app-button {
+        display: none !important;
+        visibility: hidden !important;
     }
 
     /* Encabezados */
@@ -68,7 +81,7 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(0, 82, 155, 0.05);
     }
 
-    /* Estilo del botón 'Subir' inicial */
+    /* Botón 'Subir' inicial */
     [data-testid="stFileUploaderDropzone"] > div > button,
     [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"] {
         font-size: 0 !important;
@@ -91,7 +104,7 @@ st.markdown(
         visibility: visible !important;
     }
 
-    /* Leyenda de tamaño máximo inicial */
+    /* Leyenda de tamaño máximo */
     [data-testid="stFileUploaderDropzone"] > div > small {
         font-size: 0 !important;
         line-height: 1 !important;
@@ -108,17 +121,12 @@ st.markdown(
         margin-left: 4px !important;
     }
 
-    /* ========================================================
-       COMPORTAMIENTO CUANDO YA SE SUBIÓ EL ARCHIVO
-       ======================================================== */
-
-    /* 1. Ocultar el botón secundario 'Subir' que sobra a la derecha */
+    /* Comportamiento con archivo subido */
     [data-testid="stFileUploaderDropzone"]:has([data-testid="stFileUploaderFile"]) > div > button,
     [data-testid="stFileUploaderDropzone"]:has([data-testid="stFileUploaderFile"]) [data-testid="stBaseButton-secondary"] {
         display: none !important;
     }
 
-    /* 2. Dejar visible el peso real limpio (ej. 400.6MB) sin texto añadido */
     [data-testid="stFileUploaderFile"] small {
         font-size: 12px !important;
         visibility: visible !important;
@@ -129,7 +137,6 @@ st.markdown(
         display: none !important;
     }
 
-    /* 3. Restaurar el botón 'x' para eliminar/cambiar el archivo, sin la palabra 'Subir' */
     [data-testid="stFileUploaderFile"] button {
         font-size: initial !important;
         padding: 4px 8px !important;
@@ -144,7 +151,7 @@ st.markdown(
         display: none !important;
     }
 
-    /* Botón Auditar principal */
+    /* Botón Auditar */
     .stButton > button {
         background: linear-gradient(135deg, #00529B 0%, #003366 100%) !important;
         color: #ffffff !important;
@@ -194,7 +201,7 @@ def normalizar_rol(rol_crudo):
 
 
 def extraer_roles_sii(pdf_bytes):
-    """Extrae los roles válidos del certificado SII en formato PDF."""
+    """Extrae roles válidos del certificado SII en formato PDF."""
     roles_encontrados = set()
     try:
         lector = PdfReader(io.BytesIO(pdf_bytes))
