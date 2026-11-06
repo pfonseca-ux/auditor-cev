@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. ESTILOS VISUALES Y CORRECCIÓN DE TEXTOS
+# 2. ESTILOS VISUALES Y CONTROL DEL UPLOADER
 # ==========================================
 st.markdown(
     """
@@ -47,24 +47,29 @@ st.markdown(
         margin-top: 0.5rem !important;
     }
 
+    /* Caja contenedora */
     [data-testid="stFileUploaderDropzone"] {
         background-color: #ffffff !important;
         border: 2px dashed #00529B !important;
         border-radius: 12px !important;
-        padding: 20px 24px !important;
+        padding: 18px 24px !important;
         box-shadow: 0 4px 12px rgba(0, 82, 155, 0.05);
     }
 
-    [data-testid="stFileUploaderDropzone"] button {
+    /* Estilo del botón 'Subir' inicial */
+    [data-testid="stFileUploaderDropzone"] > div > button,
+    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"] {
         font-size: 0 !important;
         position: relative !important;
         padding: 8px 24px !important;
         border-radius: 8px !important;
     }
-    [data-testid="stFileUploaderDropzone"] button * {
+    [data-testid="stFileUploaderDropzone"] > div > button *,
+    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"] * {
         display: none !important;
     }
-    [data-testid="stFileUploaderDropzone"] button::after {
+    [data-testid="stFileUploaderDropzone"] > div > button::after,
+    [data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"]::after {
         content: 'Subir' !important;
         font-size: 14px !important;
         font-weight: 600 !important;
@@ -74,12 +79,13 @@ st.markdown(
         visibility: visible !important;
     }
 
-    [data-testid="stFileUploaderDropzone"] small {
+    /* Leyenda de tamaño máximo inicial */
+    [data-testid="stFileUploaderDropzone"] > div > small {
         font-size: 0 !important;
         line-height: 1 !important;
         visibility: hidden !important;
     }
-    [data-testid="stFileUploaderDropzone"] small::after {
+    [data-testid="stFileUploaderDropzone"] > div > small::after {
         content: 'Peso Máx. 2 GB por Archivo comprimido' !important;
         font-size: 13px !important;
         font-weight: 500 !important;
@@ -90,6 +96,44 @@ st.markdown(
         margin-left: 4px !important;
     }
 
+    /* ========================================================
+       COMPORTAMIENTO CUANDO YA SE SUBIÓ EL ARCHIVO
+       (Elimina los 3 elementos duplicados y limpia la pastilla)
+       ======================================================== */
+
+    /* 1. Ocultar el botón secundario 'Subir' que sobra a la derecha */
+    [data-testid="stFileUploaderDropzone"]:has([data-testid="stFileUploaderFile"]) > div > button,
+    [data-testid="stFileUploaderDropzone"]:has([data-testid="stFileUploaderFile"]) [data-testid="stBaseButton-secondary"] {
+        display: none !important;
+    }
+
+    /* 2. Dejar visible el peso real limpio (ej. 400.6MB) sin texto 'Peso Máx' añadido */
+    [data-testid="stFileUploaderFile"] small {
+        font-size: 12px !important;
+        visibility: visible !important;
+        color: #64748b !important;
+    }
+    [data-testid="stFileUploaderFile"] small::after {
+        content: "" !important;
+        display: none !important;
+    }
+
+    /* 3. Restaurar el botón 'x' para eliminar/cambiar el archivo, sin la palabra 'Subir' */
+    [data-testid="stFileUploaderFile"] button {
+        font-size: initial !important;
+        padding: 4px 8px !important;
+        background: transparent !important;
+        border: none !important;
+    }
+    [data-testid="stFileUploaderFile"] button * {
+        display: inline-block !important;
+    }
+    [data-testid="stFileUploaderFile"] button::after {
+        content: "" !important;
+        display: none !important;
+    }
+
+    /* Botón Auditar */
     .stButton > button {
         background: linear-gradient(135deg, #00529B 0%, #003366 100%) !important;
         color: #ffffff !important;
@@ -105,6 +149,7 @@ st.markdown(
         box-shadow: 0 6px 14px rgba(0, 51, 102, 0.35) !important;
     }
 
+    /* Tarjetas de métricas */
     [data-testid="stMetric"] {
         background-color: #ffffff;
         border-radius: 10px;
@@ -127,12 +172,10 @@ def normalizar_rol(rol_crudo):
         return None
     texto = str(rol_crudo).strip()
 
-    # Coincidencia directa de patrón de ROL chileno
     match = re.search(r"\b(\d{1,6})\s*[-–]\s*(\d{1,5})\b", texto)
     if match:
         return f"{int(match.group(1))}-{int(match.group(2))}"
 
-    # Limpieza de caracteres residuales
     limpio = re.sub(r"[^\d\-–]", "", texto).replace("–", "-")
     partes = limpio.split("-")
     if len(partes) == 2 and partes[0].isdigit() and partes[1].isdigit():
@@ -174,7 +217,6 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
     try:
         wb = openpyxl.load_workbook(io.BytesIO(excel_bytes), data_only=True, read_only=True)
 
-        # Priorizar CEV-CEVE, PBTD y hojas de datos generales
         hojas_ordenadas = []
         for nombre in wb.sheetnames:
             nombre_u = nombre.upper()
@@ -183,7 +225,6 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
             else:
                 hojas_ordenadas.append(wb[nombre])
 
-        # Búsqueda a través de las hojas ordenadas
         for hoja in hojas_ordenadas:
             if datos["rol"] and datos["comuna"] != "No detectada" and datos["direccion"] != "No detectada":
                 break
@@ -194,14 +235,12 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
                         continue
                     texto_celda = str(celda).strip().upper()
 
-                    # 1. Detección de ROL
+                    # Detección de ROL
                     if not datos["rol"] and "ROL" in texto_celda:
-                        # Revisar si el valor está en la misma celda
                         rol_en_celda = normalizar_rol(texto_celda)
                         if rol_en_celda:
                             datos["rol"] = rol_en_celda
                         else:
-                            # Revisar celdas adyacentes a la derecha
                             for j in range(i + 1, min(i + 6, len(fila))):
                                 if fila[j] is not None and str(fila[j]).strip():
                                     posible_rol = normalizar_rol(fila[j])
@@ -209,7 +248,7 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
                                         datos["rol"] = posible_rol
                                         break
 
-                    # 2. Detección de COMUNA
+                    # Detección de Comuna
                     if datos["comuna"] == "No detectada" and "COMUNA" in texto_celda:
                         for j in range(i + 1, min(i + 5, len(fila))):
                             val = fila[j]
@@ -217,7 +256,7 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
                                 datos["comuna"] = str(val).strip()
                                 break
 
-                    # 3. Detección de DIRECCIÓN
+                    # Detección de Dirección
                     if datos["direccion"] == "No detectada" and any(
                         x in texto_celda for x in ["DIRECCION", "DIRECCIÓN", "CALLE", "UBICACION"]
                     ):
@@ -289,13 +328,11 @@ if archivo_zip is not None:
 
             with zipfile.ZipFile(archivo_zip, "r") as z:
                 for nombre_interno in z.namelist():
-                    # Ignorar metadatos de macOS, carpetas vacías y archivos temporales de Excel
                     if "__MACOSX" in nombre_interno or nombre_interno.endswith("/") or "/.~" in nombre_interno or nombre_interno.startswith("~"):
                         continue
 
                     nombre_lower = nombre_interno.lower()
 
-                    # Ignorar reportes de auditoría descargados previamente
                     if "reporte_auditoria" in nombre_lower:
                         continue
 
