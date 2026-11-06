@@ -1,4 +1,5 @@
 import io
+import os
 import re
 import zipfile
 import openpyxl
@@ -7,15 +8,20 @@ from pypdf import PdfReader
 import streamlit as st
 
 # ==========================================
-# CONFIGURACIÓN GENERAL Y ESTILOS VISUALES
+# 1. CONFIGURACIÓN DE PÁGINA (PRIMERA LÍNEA)
 # ==========================================
+icono_app = "sobresalir.png" if os.path.exists("sobresalir.png") else "🏠"
+
 st.set_page_config(
     page_title="Auditor de Planillas CEV",
-    page_icon="🏠",
+    page_icon=icono_app,
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
+# ==========================================
+# 2. ESTILOS VISUALES Y TIPOGRAFÍA MODERNA
+# ==========================================
 st.markdown(
     """
 <style>
@@ -26,23 +32,24 @@ st.markdown(
         font-family: 'Montserrat', sans-serif !important;
     }
 
-    /* Encabezados y títulos */
+    /* Encabezados */
     h1 {
         color: #0b3c61 !important;
         font-weight: 800 !important;
         letter-spacing: -0.5px;
-        font-size: 2.2rem !important;
-        margin-bottom: 0.2rem !important;
+        font-size: 2.1rem !important;
+        margin: 0 !important;
+        padding-top: 5px !important;
     }
 
     h3 {
         color: #1e3a8a !important;
         font-weight: 600 !important;
         font-size: 1.25rem !important;
-        margin-top: 0 !important;
+        margin-top: 0.5rem !important;
     }
 
-    /* Recuadro de subida de archivos (Drag & Drop) */
+    /* Recuadro de subida de archivos */
     [data-testid="stFileUploader"] {
         background-color: #ffffff;
         border: 2px dashed #00529B;
@@ -87,7 +94,7 @@ st.markdown(
 
 
 # ==========================================
-# FUNCIONES DE AUDITORÍA Y EXTRACCIÓN
+# 3. FUNCIONES DE PROCESAMIENTO Y AUDITORÍA
 # ==========================================
 def normalizar_rol(rol_crudo):
     """Limpia caracteres y estandariza formato MANZANA-PREDIO."""
@@ -102,7 +109,7 @@ def normalizar_rol(rol_crudo):
 
 
 def extraer_roles_sii(pdf_bytes):
-    """Extrae todos los roles válidos del certificado SII en PDF."""
+    """Extrae roles válidos desde el certificado SII en formato PDF."""
     roles_encontrados = set()
     try:
         lector = PdfReader(io.BytesIO(pdf_bytes))
@@ -123,7 +130,7 @@ def extraer_roles_sii(pdf_bytes):
 
 
 def auditar_planilla_excel(excel_bytes, nombre_archivo):
-    """Extrae ROL y datos generales de la planilla CEV."""
+    """Extrae y valida datos generales de la planilla CEV."""
     datos = {
         "archivo": nombre_archivo,
         "rol": None,
@@ -136,7 +143,6 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
         wb = openpyxl.load_workbook(io.BytesIO(excel_bytes), data_only=True, read_only=True)
         hoja_evaluacion = None
 
-        # Priorizar hojas típicas de la CEV
         nombres_objetivo = ["GENERAL", "DATOS GENERALES", "PROYECTO", "FICHA", "EVALUACION"]
         for nombre in wb.sheetnames:
             if any(objetivo in nombre.upper() for objetivo in nombres_objetivo):
@@ -146,7 +152,6 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
         if hoja_evaluacion is None:
             hoja_evaluacion = wb.active
 
-        # Búsqueda de campos clave dentro de las primeras filas/columnas
         limite_filas = 50
         for fila in hoja_evaluacion.iter_rows(max_row=limite_filas, values_only=True):
             for i, celda in enumerate(fila):
@@ -154,7 +159,6 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
                     continue
                 texto_celda = str(celda).strip().upper()
 
-                # Detección de etiqueta ROL
                 if "ROL" in texto_celda and not datos["rol"]:
                     for j in range(i + 1, min(i + 4, len(fila))):
                         posible_rol = normalizar_rol(fila[j])
@@ -162,14 +166,12 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
                             datos["rol"] = posible_rol
                             break
 
-                # Detección de COMUNA
                 if "COMUNA" in texto_celda and datos["comuna"] == "No detectada":
                     for j in range(i + 1, min(i + 3, len(fila))):
                         if fila[j] and str(fila[j]).strip():
                             datos["comuna"] = str(fila[j]).strip()
                             break
 
-                # Detección de DIRECCIÓN
                 if any(x in texto_celda for x in ["DIRECCION", "DIRECCIÓN", "CALLE"]) and datos["direccion"] == "No detectada":
                     for j in range(i + 1, min(i + 3, len(fila))):
                         if fila[j] and str(fila[j]).strip():
@@ -188,7 +190,7 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
 
 
 def generar_excel_reporte(df_resultados):
-    """Genera el reporte consolidado en memoria para descarga."""
+    """Genera el reporte consolidado formateado en memoria."""
     salida = io.BytesIO()
     with pd.ExcelWriter(salida, engine="openpyxl") as writer:
         df_resultados.to_excel(writer, index=False, sheet_name="Auditoria_CEV")
@@ -203,9 +205,17 @@ def generar_excel_reporte(df_resultados):
 
 
 # ==========================================
-# INTERFAZ DE USUARIO
+# 4. INTERFAZ DE USUARIO
 # ==========================================
-st.title("🏠 Auditor de Planillas - Plataforma Evaluadores CEV")
+if os.path.exists("sobresalir.png"):
+    col_logo, col_titulo = st.columns([0.06, 0.94])
+    with col_logo:
+        st.image("sobresalir.png", width=55)
+    with col_titulo:
+        st.title("Auditor de Planillas - Plataforma Evaluadores CEV")
+else:
+    st.title("🏠 Auditor de Planillas - Plataforma Evaluadores CEV")
+
 st.markdown("### Control previo para carga masiva en el Sistema de Calificación Energética de Viviendas")
 st.markdown(
     "Herramienta de control de calidad, correlatividad de ROL, consistencia de datos generales "
@@ -231,7 +241,9 @@ if archivo_zip is not None:
                     if "__MACOSX" in nombre_interno or nombre_interno.endswith("/"):
                         continue
                     nombre_lower = nombre_interno.lower()
-                    if nombre_lower.endswith(".pdf") and ("sii" in nombre_lower or "rol" in nombre_lower or "certificado" in nombre_lower):
+                    if nombre_lower.endswith(".pdf") and any(
+                        palabra in nombre_lower for palabra in ["sii", "rol", "certificado"]
+                    ):
                         archivo_pdf_sii = z.read(nombre_interno)
                     elif nombre_lower.endswith((".xlsx", ".xlsm")):
                         archivos_excel.append((nombre_interno, z.read(nombre_interno)))
@@ -258,7 +270,6 @@ if archivo_zip is not None:
                 for p in planillas_datos:
                     errores = list(p["errores"])
 
-                    # Validación de correlatividad y unicidad de ROL
                     if p["rol"]:
                         if conteo_roles[p["rol"]] > 1:
                             errores.append(f"ROL duplicado en lote ({conteo_roles[p['rol']]} planillas con ROL {p['rol']}).")
