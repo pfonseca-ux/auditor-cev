@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 2. ESTILOS VISUALES Y CONTROL DEL UPLOADER
+# 2. ESTILOS VISUALES Y CONTROL DE INTERFAZ
 # ==========================================
 st.markdown(
     """
@@ -31,6 +31,18 @@ st.markdown(
         font-family: 'Montserrat', sans-serif !important;
     }
 
+    /* Ocultar el indicador de ejecución ("Stop" / animación superior) */
+    [data-testid="stStatusWidget"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* Ocultar barra superior y menú completo de Streamlit para un look más limpio */
+    header[data-testid="stHeader"] {
+        display: none !important;
+    }
+
+    /* Encabezados */
     h1 {
         color: #0b3c61 !important;
         font-weight: 800 !important;
@@ -47,7 +59,7 @@ st.markdown(
         margin-top: 0.5rem !important;
     }
 
-    /* Caja contenedora */
+    /* Caja contenedora del Uploader */
     [data-testid="stFileUploaderDropzone"] {
         background-color: #ffffff !important;
         border: 2px dashed #00529B !important;
@@ -98,7 +110,6 @@ st.markdown(
 
     /* ========================================================
        COMPORTAMIENTO CUANDO YA SE SUBIÓ EL ARCHIVO
-       (Elimina los 3 elementos duplicados y limpia la pastilla)
        ======================================================== */
 
     /* 1. Ocultar el botón secundario 'Subir' que sobra a la derecha */
@@ -107,7 +118,7 @@ st.markdown(
         display: none !important;
     }
 
-    /* 2. Dejar visible el peso real limpio (ej. 400.6MB) sin texto 'Peso Máx' añadido */
+    /* 2. Dejar visible el peso real limpio (ej. 400.6MB) sin texto añadido */
     [data-testid="stFileUploaderFile"] small {
         font-size: 12px !important;
         visibility: visible !important;
@@ -133,7 +144,7 @@ st.markdown(
         display: none !important;
     }
 
-    /* Botón Auditar */
+    /* Botón Auditar principal */
     .stButton > button {
         background: linear-gradient(135deg, #00529B 0%, #003366 100%) !important;
         color: #ffffff !important;
@@ -162,12 +173,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-
 # ==========================================
 # 3. FUNCIONES DE PROCESAMIENTO Y AUDITORÍA
 # ==========================================
 def normalizar_rol(rol_crudo):
-    """Extrae y estandariza el formato MANZANA-PREDIO (ej: 1514-57)."""
+    """Extrae y estandariza el formato MANZANA-PREDIO."""
     if not rol_crudo:
         return None
     texto = str(rol_crudo).strip()
@@ -235,7 +245,6 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
                         continue
                     texto_celda = str(celda).strip().upper()
 
-                    # Detección de ROL
                     if not datos["rol"] and "ROL" in texto_celda:
                         rol_en_celda = normalizar_rol(texto_celda)
                         if rol_en_celda:
@@ -248,7 +257,6 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
                                         datos["rol"] = posible_rol
                                         break
 
-                    # Detección de Comuna
                     if datos["comuna"] == "No detectada" and "COMUNA" in texto_celda:
                         for j in range(i + 1, min(i + 5, len(fila))):
                             val = fila[j]
@@ -256,7 +264,6 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
                                 datos["comuna"] = str(val).strip()
                                 break
 
-                    # Detección de Dirección
                     if datos["direccion"] == "No detectada" and any(
                         x in texto_celda for x in ["DIRECCION", "DIRECCIÓN", "CALLE", "UBICACION"]
                     ):
