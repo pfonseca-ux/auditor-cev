@@ -10,7 +10,7 @@ import streamlit as st
 # ==========================================
 # 1. CONFIGURACIÓN DE PÁGINA (PRIMERA LÍNEA)
 # ==========================================
-icono_app = "sobresalir.png" if os.path.exists("sobresalir.png") else "🏠"
+icono_app = "sobresalir.svg" if os.path.exists("sobresalir.svg") else "🏠"
 
 st.set_page_config(
     page_title="Auditor de Planillas CEV",
@@ -297,10 +297,10 @@ def generar_excel_reporte(df_resultados):
 # ==========================================
 # 4. INTERFAZ DE USUARIO
 # ==========================================
-if os.path.exists("sobresalir.png"):
+if os.path.exists("sobresalir.svg"):
     col_logo, col_titulo = st.columns([0.06, 0.94])
     with col_logo:
-        st.image("sobresalir.png", width=55)
+        st.image("sobresalir.svg", width=55)
     with col_titulo:
         st.title("Auditor de Planillas - Plataforma Evaluadores CEV")
 else:
