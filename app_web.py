@@ -327,7 +327,7 @@ st.markdown(
 )
 
 archivo_zip = st.file_uploader(
-    "📁 Sube aquí el paquete del proyecto (.ZIP) con las planillas oficiales y el Certificado SII",
+    "📁 Sube aquí el paquete del proyecto (.ZIP-.RAR) con las planillas oficiales y el Certificado SII",
     type=["zip"],
     help="El archivo comprimido puede contener carpetas, subcarpetas, archivos .xlsx, .xlsm y el PDF del SII.",
 )
