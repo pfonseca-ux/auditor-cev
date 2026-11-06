@@ -1,2 +1,9 @@
 [server]
 maxUploadSize = 2000
+
+[theme]
+primaryColor = "#00529B"              # Azul institucional para botones y barras de progreso
+backgroundColor = "#F8F9FA"           # Fondo principal gris claro muy suave y limpio
+secondaryBackgroundColor = "#FFFFFF"  # Fondo blanco para la caja de subida y contenedores
+textColor = "#212529"                 # Texto oscuro de alto contraste y fácil lectura
+font = "sans serif"                   # Tipografía limpia sin serifas (moderna)
