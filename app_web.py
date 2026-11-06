@@ -22,8 +22,8 @@ st.set_page_config(
 st.title("🏠 Auditor de Planillas - Plataforma Evaluadores CEV")
 st.subheader("Control previo para carga masiva en el Sistema de Calificación Energética de Viviendas")
 st.markdown(
-    "Herramienta de control de calidad, unicidad de ROL, consistencia de datos generales "
-    "y validación automática contra el Certificado de Asignación de Roles del SII."
+    "Herramienta de control de calidad, correlatividad de ROL, consistencia de datos generales "
+    "y validación automática contra el Certificado de Asignación de Roles."
 )
 
 # --- REGLAS Y FUNCIONES DE AUDITORÍA CEV ---
