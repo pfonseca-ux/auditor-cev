@@ -27,12 +27,10 @@ st.markdown(
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
 
-    /* Tipografía global controlada */
     html, body, .stMarkdown, p, label, h1, h2, h3, h4 {
         font-family: 'Montserrat', sans-serif !important;
     }
 
-    /* Encabezados */
     h1 {
         color: #0b3c61 !important;
         font-weight: 800 !important;
@@ -49,7 +47,6 @@ st.markdown(
         margin-top: 0.5rem !important;
     }
 
-    /* Contenedor Dropzone de subida */
     [data-testid="stFileUploaderDropzone"] {
         background-color: #ffffff !important;
         border: 2px dashed #00529B !important;
@@ -58,7 +55,6 @@ st.markdown(
         box-shadow: 0 4px 12px rgba(0, 82, 155, 0.05);
     }
 
-    /* Botón: texto 'Subir' sin duplicación */
     [data-testid="stFileUploaderDropzone"] button {
         font-size: 0 !important;
         position: relative !important;
@@ -78,7 +74,6 @@ st.markdown(
         visibility: visible !important;
     }
 
-    /* Leyenda de tamaño máximo */
     [data-testid="stFileUploaderDropzone"] small {
         font-size: 0 !important;
         line-height: 1 !important;
@@ -95,7 +90,6 @@ st.markdown(
         margin-left: 4px !important;
     }
 
-    /* Botón de acción principal */
     .stButton > button {
         background: linear-gradient(135deg, #00529B 0%, #003366 100%) !important;
         color: #ffffff !important;
@@ -111,7 +105,6 @@ st.markdown(
         box-shadow: 0 6px 14px rgba(0, 51, 102, 0.35) !important;
     }
 
-    /* Tarjetas de métricas */
     [data-testid="stMetric"] {
         background-color: #ffffff;
         border-radius: 10px;
@@ -129,19 +122,26 @@ st.markdown(
 # 3. FUNCIONES DE PROCESAMIENTO Y AUDITORÍA
 # ==========================================
 def normalizar_rol(rol_crudo):
-    """Limpia caracteres y estandariza formato MANZANA-PREDIO."""
+    """Extrae y estandariza el formato MANZANA-PREDIO (ej: 1514-57)."""
     if not rol_crudo:
         return None
-    limpio = re.sub(r"[^\d\-–]", "", str(rol_crudo).strip())
-    limpio = limpio.replace("–", "-")
+    texto = str(rol_crudo).strip()
+
+    # Coincidencia directa de patrón de ROL chileno
+    match = re.search(r"\b(\d{1,6})\s*[-–]\s*(\d{1,5})\b", texto)
+    if match:
+        return f"{int(match.group(1))}-{int(match.group(2))}"
+
+    # Limpieza de caracteres residuales
+    limpio = re.sub(r"[^\d\-–]", "", texto).replace("–", "-")
     partes = limpio.split("-")
     if len(partes) == 2 and partes[0].isdigit() and partes[1].isdigit():
         return f"{int(partes[0])}-{int(partes[1])}"
-    return limpio if limpio else None
+    return None
 
 
 def extraer_roles_sii(pdf_bytes):
-    """Extrae roles válidos desde el certificado SII en formato PDF."""
+    """Extrae los roles válidos del certificado SII en formato PDF."""
     roles_encontrados = set()
     try:
         lector = PdfReader(io.BytesIO(pdf_bytes))
@@ -162,7 +162,7 @@ def extraer_roles_sii(pdf_bytes):
 
 
 def auditar_planilla_excel(excel_bytes, nombre_archivo):
-    """Extrae y valida datos generales de la planilla CEV."""
+    """Extrae ROL, comuna y dirección revisando prioritariamente hojas CEV."""
     datos = {
         "archivo": nombre_archivo,
         "rol": None,
@@ -173,42 +173,61 @@ def auditar_planilla_excel(excel_bytes, nombre_archivo):
 
     try:
         wb = openpyxl.load_workbook(io.BytesIO(excel_bytes), data_only=True, read_only=True)
-        hoja_evaluacion = None
 
-        nombres_objetivo = ["GENERAL", "DATOS GENERALES", "PROYECTO", "FICHA", "EVALUACION"]
+        # Priorizar CEV-CEVE, PBTD y hojas de datos generales
+        hojas_ordenadas = []
         for nombre in wb.sheetnames:
-            if any(objetivo in nombre.upper() for objetivo in nombres_objetivo):
-                hoja_evaluacion = wb[nombre]
+            nombre_u = nombre.upper()
+            if any(k in nombre_u for k in ["CEV", "PBTD", "GENERAL", "PROYECTO", "FICHA", "DATOS"]):
+                hojas_ordenadas.insert(0, wb[nombre])
+            else:
+                hojas_ordenadas.append(wb[nombre])
+
+        # Búsqueda a través de las hojas ordenadas
+        for hoja in hojas_ordenadas:
+            if datos["rol"] and datos["comuna"] != "No detectada" and datos["direccion"] != "No detectada":
                 break
 
-        if hoja_evaluacion is None:
-            hoja_evaluacion = wb.active
+            for fila in hoja.iter_rows(max_row=80, values_only=True):
+                for i, celda in enumerate(fila):
+                    if celda is None:
+                        continue
+                    texto_celda = str(celda).strip().upper()
 
-        limite_filas = 50
-        for fila in hoja_evaluacion.iter_rows(max_row=limite_filas, values_only=True):
-            for i, celda in enumerate(fila):
-                if celda is None:
-                    continue
-                texto_celda = str(celda).strip().upper()
+                    # 1. Detección de ROL
+                    if not datos["rol"] and "ROL" in texto_celda:
+                        # Revisar si el valor está en la misma celda
+                        rol_en_celda = normalizar_rol(texto_celda)
+                        if rol_en_celda:
+                            datos["rol"] = rol_en_celda
+                        else:
+                            # Revisar celdas adyacentes a la derecha
+                            for j in range(i + 1, min(i + 6, len(fila))):
+                                if fila[j] is not None and str(fila[j]).strip():
+                                    posible_rol = normalizar_rol(fila[j])
+                                    if posible_rol:
+                                        datos["rol"] = posible_rol
+                                        break
 
-                if "ROL" in texto_celda and not datos["rol"]:
-                    for j in range(i + 1, min(i + 4, len(fila))):
-                        posible_rol = normalizar_rol(fila[j])
-                        if posible_rol:
-                            datos["rol"] = posible_rol
-                            break
+                    # 2. Detección de COMUNA
+                    if datos["comuna"] == "No detectada" and "COMUNA" in texto_celda:
+                        for j in range(i + 1, min(i + 5, len(fila))):
+                            val = fila[j]
+                            if val is not None and str(val).strip() and "COMUNA" not in str(val).upper():
+                                datos["comuna"] = str(val).strip()
+                                break
 
-                if "COMUNA" in texto_celda and datos["comuna"] == "No detectada":
-                    for j in range(i + 1, min(i + 3, len(fila))):
-                        if fila[j] and str(fila[j]).strip():
-                            datos["comuna"] = str(fila[j]).strip()
-                            break
-
-                if any(x in texto_celda for x in ["DIRECCION", "DIRECCIÓN", "CALLE"]) and datos["direccion"] == "No detectada":
-                    for j in range(i + 1, min(i + 3, len(fila))):
-                        if fila[j] and str(fila[j]).strip():
-                            datos["direccion"] = str(fila[j]).strip()
-                            break
+                    # 3. Detección de DIRECCIÓN
+                    if datos["direccion"] == "No detectada" and any(
+                        x in texto_celda for x in ["DIRECCION", "DIRECCIÓN", "CALLE", "UBICACION"]
+                    ):
+                        for j in range(i + 1, min(i + 5, len(fila))):
+                            val = fila[j]
+                            if val is not None and str(val).strip():
+                                val_u = str(val).upper()
+                                if not any(x in val_u for x in ["DIRECCION", "DIRECCIÓN", "CALLE"]):
+                                    datos["direccion"] = str(val).strip()
+                                    break
 
         wb.close()
 
@@ -270,9 +289,16 @@ if archivo_zip is not None:
 
             with zipfile.ZipFile(archivo_zip, "r") as z:
                 for nombre_interno in z.namelist():
-                    if "__MACOSX" in nombre_interno or nombre_interno.endswith("/"):
+                    # Ignorar metadatos de macOS, carpetas vacías y archivos temporales de Excel
+                    if "__MACOSX" in nombre_interno or nombre_interno.endswith("/") or "/.~" in nombre_interno or nombre_interno.startswith("~"):
                         continue
+
                     nombre_lower = nombre_interno.lower()
+
+                    # Ignorar reportes de auditoría descargados previamente
+                    if "reporte_auditoria" in nombre_lower:
+                        continue
+
                     if nombre_lower.endswith(".pdf") and any(
                         palabra in nombre_lower for palabra in ["sii", "rol", "certificado"]
                     ):
@@ -288,7 +314,7 @@ if archivo_zip is not None:
                     planillas_datos.append(datos)
 
             if not planillas_datos:
-                st.error("No se encontraron planillas Excel (.xlsx / .xlsm) dentro del paquete ZIP subido.")
+                st.error("No se encontraron planillas Excel (.xlsx / .xlsm) válidas dentro del paquete ZIP subido.")
             else:
                 conteo_roles = {}
                 for p in planillas_datos:
